@@ -3,7 +3,6 @@
 from urllib import parse
 import crawlertool as tool
 from multiprocessing.dummy import Pool  # 线程池
-from selenium import webdriver
 from config import *
 flag=1
 def filter(str):
@@ -115,7 +114,8 @@ class SpiderTwitterAccountPost(tool.abc.SingleSpider):
 
                 item['text']=filter(item['text'])
                 item['text']=huiche.sub('.',item['text'])
-                if item['text']=='Good morning. This is the #ExpressFrontPage for today. Read more news here https://bit.ly/2m14gAR':
+                if item['text']=='Good morning. This is the #ExpressFrontPage for today. Read more news here https://bit.ly/2m14gAR'\
+                        or "You share your b'day with" in item['text']:
                     continue
                     #expressfront每日问候，非新闻
 
@@ -170,19 +170,20 @@ def run(source):
 datas=[]
 # ------------------- 单元测试 -------------------
 if __name__ == "__main__":
-    if not os.path.exists(datadir[0]):
-        os.mkdir(datadir[0])
-    pool = Pool(pool_size)
-    pool.map(run, india_sources)
-    pool.close()
-    pool.join()
-    wb = workbook.Workbook()  # 创建Excel对象
-    ws = wb.active  # 获取当前正在操作的表对象
-    # 往表中写入标题行,以列表形式写入！
-    ws.append(
-        ["tweet_id", 'tweet_url',"time", "text", "from", "replies", "retweets", "likes", "url",'flag'])
-    for index,data in enumerate(datas):
-        ws.append([data["tweet_id"],data['tweet_url'], data["time"], data["text"], data['from'],
-                   data["replies"], data["retweets"], data["likes"], data["url"], index+1])
-    file_path = os.path.join(datadir[0], '{}_{}.xlsx'.format(since, today))
-    wb.save(file_path)
+    for dir in datadir:
+        if not os.path.exists(dir):
+            os.mkdir(dir)
+        pool = Pool(pool_size)
+        pool.map(run, india_sources)
+        pool.close()
+        pool.join()
+        wb = workbook.Workbook()  # 创建Excel对象
+        ws = wb.active  # 获取当前正在操作的表对象
+        # 往表中写入标题行,以列表形式写入！
+        ws.append(
+            ["tweet_id", 'tweet_url',"time", "text", "from", "replies", "retweets", "likes", "url",'flag'])
+        for index,data in enumerate(datas):
+            ws.append([data["tweet_id"],data['tweet_url'], data["time"], data["text"], data['from'],
+                       data["replies"], data["retweets"], data["likes"], data["url"], index+1])
+        file_path = os.path.join(dir, '{}_{}.xlsx'.format(since, today))
+        wb.save(file_path)

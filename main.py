@@ -8,11 +8,12 @@ from xlrd import open_workbook
 from config import *
 import tqdm
 from math import e
-from requests_html import HTMLSession
 from retry import retry
 from fake_useragent import UserAgent
-from selenium import webdriver
+
 import requests
+from bs4 import BeautifulSoup as BS
+datas = []
 #无效
 def verification(url):
     driver = webdriver.Chrome()
@@ -47,32 +48,68 @@ def get_header():
 
 #通过谷歌获取该新闻在其新闻网站的网址
 #!!!即使手动通过也无用
-@retry( tries=5, delay=2)
+#@retry( tries=3, delay=2)
+def search(term, proxies,num_results=10, lang="en"):
+    usr_agent = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
+                      'Chrome/61.0.3163.100 Safari/537.36'}
+    def fetch_results(search_term, number_results, language_code):
+        escaped_search_term = search_term.replace(' ', '+')
+
+        google_url = 'https://www.google.com/search?q={}&num={}&hl={}'.format(escaped_search_term, number_results+1,
+                                                                              language_code)
+        response = requests.get(google_url, headers=usr_agent,proxies=proxies)
+        response.raise_for_status()
+        return response.text
+
+    def parse_results(raw_html):
+        soup = BS(raw_html, 'html.parser')
+        result_block = soup.find_all('div', attrs={'class': 'g'})
+        for result in result_block:
+            link = result.find('a', href=True)
+            title = result.find('h3')
+            if link and title:
+                yield link['href']
+
+    html = fetch_results(term, num_results, lang)
+    return list(parse_results(html))
+
 def get_url(data):
-    headers = {'User-Agent': get_header()}
+    #headers = {'User-Agent': get_header()}
     proxy = {"https": "socks5h://127.0.0.1:10808"}
+    text = data['text'] + ' site:' + india_sources[data['from']]['url']
+    if x:=search(text,proxies=proxy):
+        return no_from_twitter(x)
+    else:
+        text = data['text'] + ' link:' + india_sources[data['from']]['url']
+        return no_from_twitter(search(text, proxies=proxy))
     #无法连接尝试换掉，
-    url='https://www.google.com/search'
-    session = HTMLSession()
-    params = {'q': data['text'] + ' site:' + india_sources[data['from']]['url']}
-    r = session.get(url=url, params=params, proxies=proxy, timeout=4, headers=headers)
-    if r.status_code==429:
-        verification(r.url)
-        #暂停手动验证
-        raise Exception
-    try:
-        x = r.html.xpath('//*[@id="rso"]/div[1]/div//div[1]/a')[0].attrs["href"]
+    #url='https://www.google.com/search'
+    #session = HTMLSession()
+    #params = {'q': data['text'] + ' site:' + india_sources[data['from']]['url']}
+
+    #r = session.get(url=url, params=params, proxies=proxy, timeout=4, headers=headers)
+    # if r.status_code==429:
+    #     verification(r.url)
+    #     #暂停手动验证
+    #     raise Exception
+    # if x := r.html.xpath('//*[@id="rso"]/div[1]/div//div[1]/a'):
+    #     return x[0].attrs['herf']
     # 有时候site太严格无结果用link凑合
-    except:
-        params = {'q': data['text'] + ' link:' + india_sources[data['from']]['url']}
-        r = session.get(url=url, params=params, proxies=proxy, timeout=4, headers=headers)
-        if r.status_code==429:
-            verification(r.url)
-            #暂停手动验证
-            raise Exception
-        x = r.html.xpath('//*[@id="rso"]/div[1]/div//div[1]/a')[0].attrs["href"]
-    time.sleep(0.5)
-    return x
+    # else:
+    #     params = {'q': data['text'] + ' link:' + india_sources[data['from']]['url']}
+    #     r = session.get(url=url, params=params, proxies=proxy, timeout=4, headers=headers)
+    #     if r.status_code==429:
+    #         verification(r.url)
+    #         #暂停手动验证
+    #         raise Exception
+    #     return r.html.xpath('//*[@id="rso"]/div[1]/div//div[1]/a')[0].attrs["href"]
+
+#去掉来自本站的网址
+def no_from_twitter(url_list):
+    for url in url_list:
+        if 'twitter.com/' not in url:
+           return url
 #关键词提取
 def extract(text):
     # 读取文件
@@ -135,7 +172,8 @@ def score(data):
          +(now-datetime.datetime.strptime(data['time'], '%Y-%m-%d %H:%M:%S')).seconds)/3600
     #按小时算
     w=data["likes"]*1+data["replies"]*10+data["retweets"]*5
-    return (w+100)*pow(e,(-0.096*t))
+    return (w+100)*pow(e,(-0.046*t))#24小时候后热度降低至1/3
+    #return (w+100)*pow(e,(-0.069*t))#24小时候后热度降低至1/10
 
 #合并所有重复新闻热度并去掉重复新闻
 def final():
@@ -153,21 +191,24 @@ def final():
         #取分数最高的一个
         new_data['score']=sum(x['score'] for x in datas[start:n])
         # 合计分数
-        #new_data['from']=" | ".join(set(x['from'] for x in datas[start:n]))
+        new_data['from']=" | ".join(set(x['from'] for x in datas[start:n]))
         try:
             new_data['url'] = get_url(new_data)
             print("{}:".format(n),new_data['url'])
         except:
-            pass
+            new_data['url']=""
+            print("Get nothing")
+        #new_data['url'] = "https://twitter.com/home"
         new_datas.append(new_data)
-    print(new_datas[:10])
+        if len(new_datas)>=50:
+            return new_datas
     return new_datas
 
 #加载数据同时计算得分
-def load_datas():
-    source = os.listdir(datadir[0])[0]
+def load_datas(path):
+    source = os.listdir(path)[0]
     # 文件夹内仅保留一个excel
-    file_path = os.path.join(datadir[0], source)
+    file_path = os.path.join(path, source)
     fp = open_workbook(file_path)
     table = fp.sheets()[0]
     nrows = table.nrows
@@ -199,23 +240,25 @@ def Statistics():
                     attached[best_match[1]] = (best_match[0], data_a['from'], index_a)
 
 
-datas = []
+
 if __name__ == "__main__":
-    flag=1
-    load_datas()
-    Statistics()
-    datas.sort(key=lambda x: x['flag'])
-    datas = final()
-    datas.sort(key=lambda x: x['score'])
-    wb = workbook.Workbook()  # 创建Excel对象
-    ws = wb.active  # 获取当前正在操作的表对象
-    # 往表中写入标题行,以列表形式写入！
-    ws.append(["tweet_id", 'tweet_url', "time", "text", "from", "replies", "retweets", "likes", "url", 'flag', 'score'])
-    for data in datas:
-        ws.append([data["tweet_id"], data['tweet_url'], data["time"], data["text"], data['from'],
-                   data["replies"], data["retweets"], data["likes"], data["url"], data['flag'], data['score']])
-    file_path = os.path.join(datadir[0], '{}_flagged.xlsx'.format(datadir[0]))
-    wb.save(file_path)
+    for dir in datadir:
+        datas = []
+        load_datas(dir)
+        Statistics()
+        datas.sort(key=lambda x: x['flag'])
+        datas = final()
+        datas.sort(key=lambda x: x['score'])
+        print(datas[:10])
+        wb = workbook.Workbook()  # 创建Excel对象
+        ws = wb.active  # 获取当前正在操作的表对象
+        # 往表中写入标题行,以列表形式写入！
+        ws.append(["tweet_id", 'tweet_url', "time", "text", "from", "replies", "retweets", "likes", "url", 'flag', 'score'])
+        for data in datas:
+            ws.append([data["tweet_id"], data['tweet_url'], data["time"], data["text"], data['from'],
+                       data["replies"], data["retweets"], data["likes"], data["url"], data['flag'], data['score']])
+        file_path = os.path.join(dir, '{}_flagged.xlsx'.format(dir))
+        wb.save(file_path)
 
 
 

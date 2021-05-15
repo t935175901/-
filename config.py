@@ -3,6 +3,7 @@ import re
 import os
 import time
 from openpyxl import workbook  # 写入Excel表所用
+from selenium import webdriver
 pool_size=1
 #线程池大小
 
@@ -25,7 +26,12 @@ huiche=re.compile(r'\n[\n]?')
 #记录新闻来源twitterid及网址
 india_sources={'PTI_News':{'name':'Press Trust of India','url':'http://www.ptinews.com/'},
                'timesofindia':{'name':'The Times Of India','url':'http://timesofindia.indiatimes.com/'},
-               'IndianExpress':{'name':'The Indian Express','url':'https://indianexpress.com/'}}
+               'IndianExpress':{'name':'The Indian Express','url':'https://indianexpress.com/'},
+               'htTweets':{'name':'Hindustan Times','url':'https://www.hindustantimes.com/'},
+               'IndiaToday':{'name':'IndiaToday','url':'https://www.indiatoday.in/'}}
+philippines_sources={'PTVph':{'name':'PTV NEWS','url':'http://ptvnews.ph/'},#16.6w
+               'pnagovph':{'name':'Phil News Agency','url':'https://www.pna.gov.ph/'},#2.6w
+               'PhilstarNews':{'name':'Phil Star','url':'https://www.philstar.com/'}} #68.5w
 
 def get_twitter_user_name(page_url: str) -> str:
     """提取Twitter的账号用户名称
@@ -38,8 +44,7 @@ def get_twitter_user_name(page_url: str) -> str:
     return page_url
 
 
-import re
-from bs4 import BeautifulSoup as BS
+
 
 
 
