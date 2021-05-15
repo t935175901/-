@@ -74,15 +74,17 @@ def search(term, proxies,num_results=10, lang="en"):
     html = fetch_results(term, num_results, lang)
     return list(parse_results(html))
 
-def get_url(data):
+def get_url(data,nn):
     #headers = {'User-Agent': get_header()}
     proxy = {"https": "socks5h://127.0.0.1:10808"}
-    text = data['text'] + ' site:' + india_sources[data['from']]['url']
-    if x:=search(text,proxies=proxy):
+    for source in sources[nn]:
+        text = data['text'] + ' site:' + source['url']
+        if x:=search(text,proxies=proxy):
+            return no_from_twitter(x)
+    text = data['text']
+    if x := search(text, proxies=proxy):
         return no_from_twitter(x)
-    else:
-        text = data['text'] + ' link:' + india_sources[data['from']]['url']
-        return no_from_twitter(search(text, proxies=proxy))
+
     #无法连接尝试换掉，
     #url='https://www.google.com/search'
     #session = HTMLSession()
@@ -176,7 +178,7 @@ def score(data):
     #return (w+100)*pow(e,(-0.069*t))#24小时候后热度降低至1/10
 
 #合并所有重复新闻热度并去掉重复新闻
-def final():
+def final(nn):
     n=0
     new_datas=[]
     while n<len(datas):
@@ -193,7 +195,7 @@ def final():
         # 合计分数
         new_data['from']=" | ".join(set(x['from'] for x in datas[start:n]))
         try:
-            new_data['url'] = get_url(new_data)
+            new_data['url'] = get_url(new_data,nn)
             print("{}:".format(n),new_data['url'])
         except:
             new_data['url']=""
@@ -242,12 +244,12 @@ def Statistics():
 
 
 if __name__ == "__main__":
-    for dir in datadir:
+    for nn,dir in enumerate(datadir):
         datas = []
         load_datas(dir)
         Statistics()
         datas.sort(key=lambda x: x['flag'])
-        datas = final()
+        datas = final(nn)
         datas.sort(key=lambda x: x['score'])
         print(datas[:10])
         wb = workbook.Workbook()  # 创建Excel对象

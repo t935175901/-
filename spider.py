@@ -170,11 +170,11 @@ def run(source):
 datas=[]
 # ------------------- 单元测试 -------------------
 if __name__ == "__main__":
-    for dir in datadir:
+    for nn,dir in enumerate(datadir):
         if not os.path.exists(dir):
             os.mkdir(dir)
         pool = Pool(pool_size)
-        pool.map(run, india_sources)
+        pool.map(run, sources[nn])
         pool.close()
         pool.join()
         wb = workbook.Workbook()  # 创建Excel对象
