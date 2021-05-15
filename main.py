@@ -194,16 +194,6 @@ def final(nn):
         new_data['score']=sum(x['score'] for x in datas[start:n])
         # 合计分数
         new_data['from']=" | ".join(set(x['from'] for x in datas[start:n]))
-        try:
-            new_data['url'] = get_url(new_data,nn)
-            print("{}:".format(n),new_data['url'])
-        except:
-            new_data['url']=""
-            print("Get nothing")
-        #new_data['url'] = "https://twitter.com/home"
-        new_datas.append(new_data)
-        if len(new_datas)>=50:
-            return new_datas
     return new_datas
 
 #加载数据同时计算得分
@@ -247,10 +237,22 @@ if __name__ == "__main__":
     for nn,dir in enumerate(datadir):
         datas = []
         load_datas(dir)
+        if len(datas)>1000:
+            datas=sorted(datas,reverse=True,key=lambda x: x['score'])[:int(len(datas)/3)]
+            #数据过多的话，切片取前1/3进行处理，实测热度新闻极度集中
+            datas.sort(key=lambda x: x['flag'])
         Statistics()
         datas.sort(key=lambda x: x['flag'])
         datas = final(nn)
-        datas.sort(key=lambda x: x['score'])
+        datas=sorted(datas,reverse=True,key=lambda x: x['score'])[:30]
+        for n in range(30):
+            try:
+                datas[n]['url'] = get_url(datas[n], nn)
+                print("{}:".format(n), datas[n]['url'])
+            except:
+                datas[n]['url'] = ""
+                print("Get nothing")
+            #获得url
         print(datas[:10])
         wb = workbook.Workbook()  # 创建Excel对象
         ws = wb.active  # 获取当前正在操作的表对象

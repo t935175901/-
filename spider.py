@@ -174,6 +174,7 @@ if __name__ == "__main__":
         if not os.path.exists(dir):
             os.mkdir(dir)
         pool = Pool(pool_size)
+        datas = []
         pool.map(run, sources[nn])
         pool.close()
         pool.join()
