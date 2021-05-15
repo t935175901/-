@@ -77,8 +77,9 @@ def search(term, proxies,num_results=10, lang="en"):
 def get_url(data,nn):
     #headers = {'User-Agent': get_header()}
     proxy = {"https": "socks5h://127.0.0.1:10808"}
-    for source in sources[nn]:
-        text = data['text'] + ' site:' + source['url']
+    froms=data['from'].split('|').split()
+    for source in froms:
+        text = data['text'] + ' site:' + sources[nn][source]['url']
         if x:=search(text,proxies=proxy):
             return no_from_twitter(x)
     text = data['text']
@@ -174,7 +175,8 @@ def score(data):
          +(now-datetime.datetime.strptime(data['time'], '%Y-%m-%d %H:%M:%S')).seconds)/3600
     #按小时算
     w=data["likes"]*1+data["replies"]*10+data["retweets"]*5
-    return (w+100)*pow(e,(-0.046*t))#24小时候后热度降低至1/3
+    w0=len(data)/10
+    return (w+w0)*pow(e,(-0.046*t))#24小时候后热度降低至1/3
     #return (w+100)*pow(e,(-0.069*t))#24小时候后热度降低至1/10
 
 #合并所有重复新闻热度并去掉重复新闻
@@ -194,6 +196,7 @@ def final(nn):
         new_data['score']=sum(x['score'] for x in datas[start:n])
         # 合计分数
         new_data['from']=" | ".join(set(x['from'] for x in datas[start:n]))
+        new_datas.append(new_data)
     return new_datas
 
 #加载数据同时计算得分
@@ -245,14 +248,14 @@ if __name__ == "__main__":
         datas.sort(key=lambda x: x['flag'])
         datas = final(nn)
         datas=sorted(datas,reverse=True,key=lambda x: x['score'])[:30]
-        for n in range(30):
-            try:
-                datas[n]['url'] = get_url(datas[n], nn)
-                print("{}:".format(n), datas[n]['url'])
-            except:
-                datas[n]['url'] = ""
-                print("Get nothing")
-            #获得url
+        # for n in range(30):
+        #     try:
+        #         datas[n]['url'] = get_url(datas[n], nn)
+        #         print("{}:".format(n), datas[n]['url'])
+        #     except:
+        #         datas[n]['url'] = ""
+        #         print("Get nothing")
+        #     #获得url
         print(datas[:10])
         wb = workbook.Workbook()  # 创建Excel对象
         ws = wb.active  # 获取当前正在操作的表对象
